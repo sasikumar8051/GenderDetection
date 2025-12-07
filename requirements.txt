@@ -6,4 +6,6 @@ pydub
 ffmpeg-python
 soundfile
 joblib
+
 gunicorn
+setuptools
