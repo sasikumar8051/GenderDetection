@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Live Gender Detection</title>
+
+<style>
+    body {
+        margin: 0; padding: 0;
+        background: linear-gradient(120deg,#4b0082,#1a1a40,#000);
+        background-size: 300% 300%;
+        animation: bg 12s ease infinite;
+        font-family: 'Poppins', sans-serif;
+        color: white; text-align: center;
+    }
+    @keyframes bg {
+        0% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
+    }
+
+    .glass-box {
+        margin: 60px auto;
+        width: 450px;
+        padding: 25px;
+        border-radius: 15px;
+        backdrop-filter: blur(15px);
+        background: rgba(255,255,255,0.1);
+        box-shadow: 0 0 25px rgba(255,255,255,0.25);
+    }
+
+    input[type=file], button {
+        margin-top: 15px;
+        padding: 12px 20px;
+        border: none; border-radius: 6px;
+        font-size: 14px; cursor: pointer;
+    }
+
+    #recordBtn { background:#00c853; color:white; }
+    #stopBtn { background:#ff1744; color:white; display:none; }
+    #predictBtn { background:#ff007f; color:white; }
+
+    canvas {
+        margin-top: 20px;
+        width: 100%;
+        border-radius: 10px;
+        background: rgba(255,255,255,0.08);
+    }
+
+    .result-box {
+        margin-top: 20px;
+        padding: 12px;
+        border-radius: 10px;
+        font-size: 22px;
+        background: rgba(0,0,0,0.3);
+    }
+</style>
+</head>
+<body>
+
+<div class="glass-box">
+    <h1>🎤 Live Gender Detection</h1>
+
+    <form id="uploadForm" method="POST" enctype="multipart/form-data">
+        <input type="file" name="audio_file" accept=".wav,.mp3" required>
+        <button id="predictBtn">Predict Gender</button>
+    </form>
+
+    <hr style="margin:20px; opacity:0.3;">
+
+    <h3>Or Record Your Voice</h3>
+    <button id="recordBtn">🎙 Start</button>
+    <button id="stopBtn">⛔ Stop</button>
+
+    <form id="recordForm" method="POST" enctype="multipart/form-data" style="display:none;">
+        <input type="file" id="audio_blob" name="audio_file">
+    </form>
+
+    <canvas id="wave"></canvas>
+
+    {% if result %}
+    <audio controls style="margin-top:20px;">
+        <source src="/static/last_audio.wav" type="audio/wav">
+    </audio>
+    <div class="result-box">
+        {% if result == "Male" %}
+            ♂ <b style="color:#00c8ff;">Male</b>
+        {% else %}
+            ♀ <b style="color:#ff8bcb;">Female</b>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+
+<script>
+let recorder, chunks = [];
+let audioCtx, analyser, dataArray, animation;
+
+const wave = document.getElementById("wave");
+const ctx = wave.getContext("2d");
+
+recordBtn.onclick = async () => {
+    let stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+    recorder = new MediaRecorder(stream);
+    recorder.start();
+    chunks = [];
+
+    recorder.ondataavailable = e => chunks.push(e.data);
+
+    recordBtn.style.display = "none";
+    stopBtn.style.display = "inline-block";
+
+    audioCtx = new AudioContext();
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 2048;
+    dataArray = new Uint8Array(analyser.frequencyBinCount);
+    let source = audioCtx.createMediaStreamSource(stream);
+    source.connect(analyser);
+
+    function draw() {
+        animation = requestAnimationFrame(draw);
+        analyser.getByteTimeDomainData(dataArray);
+        ctx.fillStyle = "rgba(255,255,255,0.08)";
+        ctx.fillRect(0, 0, wave.width, wave.height);
+
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = "#ff007f";
+        ctx.beginPath();
+
+        let slice = wave.width / analyser.frequencyBinCount, x = 0;
+        for (let i = 0; i < analyser.frequencyBinCount; i++) {
+            let v = dataArray[i] / 128.0;
+            let y = v * wave.height / 2;
+            if (i === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+            x += slice;
+        }
+        ctx.stroke();
+    }
+    draw();
+};
+
+stopBtn.onclick = () => {
+    recorder.stop();
+    cancelAnimationFrame(animation);
+
+    recordBtn.style.display = "inline-block";
+    stopBtn.style.display = "none";
+
+    recorder.onstop = () => {
+        let blob = new Blob(chunks, { type: "audio/wav" });
+        let file = new File([blob], "recorded.wav", { type: "audio/wav" });
+
+        let dt = new DataTransfer();
+        dt.items.add(file);
+        audio_blob.files = dt.files;
+
+        document.getElementById("recordForm").submit();
+    };
+};
+</script>
+
+</body>
+</html>

@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: gender-detection
+    env: python
+    plan: free
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "gunicorn app:app"
+    envVars:
+      PYTHON_VERSION: 3.10
+    build:
+      packages:
+        - ffmpeg
+        - libsndfile1
