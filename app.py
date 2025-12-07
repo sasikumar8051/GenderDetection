@@ -4,7 +4,7 @@ import numpy as np
 import librosa
 import os
 import soundfile as sf
-import pydub as AudioSegment
+from pydub import AudioSegment
 
 
 app = Flask(__name__)
@@ -55,3 +55,4 @@ def index():
 
 if __name__ == "__main__":
     app.run(debug=True)
+
